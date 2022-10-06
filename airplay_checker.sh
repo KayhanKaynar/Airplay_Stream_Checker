@@ -1,5 +1,5 @@
 #!/bin/bash
-#
+
 # This project is written by kayhan.kaynar@hotmail.com for using rpiplay instance as a Raspberry Pi AirPlay server.
 # When using rpiplay , sometimes when you connect to the service, rpiplay instance gets null buffer error
 # and then crashes with some video,audio problems. This script is written to fix the problem with an innovative perspective.
@@ -12,39 +12,44 @@
 # AirPlay Service Checker V3
 # kayhan.kaynar@hotmail.com
 
-### From here --->
-myname=`basename $0`
+### From here -->
+script_name=$(basename -- "$0")
+pid=(`pgrep -f $script_name`)
+pid_count=${#pid[@]}
 
-for pid in $(pidof -x $myname); do
-    if [ $pid != $$ ]; then
-        #echo "[$(date)] : $myname : Process is already running with another PID of $pid"
-        exit 1
-    #else
-        #echo There is no other instances working.
-    fi
-done
-### ----> to here script finds if itself is running in another instance with its name.
+[[ -z $pid ]] && echo "Failed to get the PID"
 
-# Some variables like;
+if [ -f "/var/run/$script_name" ];then
+   if [[  $pid_count -gt "1" ]];then
+      echo "An another instance of this script is already running, please clear all the sessions of this script before starting a new session"
+      exit 1
+   else
+      echo "Looks like the last instance of this script exited unsuccessfully, perform cleanup"
+      rm -f "/var/run/$script_name"
+   fi
+fi
+
+echo $pid > /var/run/$script_name
+## to here , scripts checks if there is another instance.
+
 sleeptimer=15
+clientonlinefile=/tmp/airplayclient.txt
 tvname=KayhanPI4
 
-# Checking if another rpiplay instance is running in background
 check_if_multiplerpiplay_is_running(){
 local rpiplaypids=($(pidof rpiplay))
 instancecount="${#rpiplaypids[@]}"
 
-# Killing if other instances have been found.
 if [ $instancecount -gt "1" ] ;then
 N=0
-while [ "$N" -ne "$arraylength" ]; do
-        kill -9 ${rpiplaypid[N]}
+while [ "$N" -ne "$instancecount" ]; do
+        kill ${rpiplaypid[N]}
         ((N=N+1))
 done
 fi
 
-# Somehow , if script can not find any instance, it starts one of it , itself:
 local rpiplaypid2=($(pidof rpiplay))
+
 if [ -z $rpiplaypid2 ]
         then
         /usr/local/bin/rpiplay -n $tvname -b off -vr rpi -ar rpi -a hdmi -l &
@@ -77,7 +82,7 @@ then
     tvservice -p
     touch $clientonlinefile
   fi
-  echo "Airplay client connected."
+  echo "Airplay client bagli."
   vcgencmd display_power 1 > /dev/null
 else
   if [ -e $clientonlinefile ]
@@ -88,11 +93,14 @@ else
     kill -9 $rpiplaypid
     unset rpiplaypid
     /usr/local/bin/rpiplay -n $tvname -b off -vr rpi -ar rpi -a hdmi -l &
-    echo "Airplay client disconnected."
+    echo "Airplay client bagli degil."
   fi
 fi
 sleep $sleeptimer
 
 done
+
+
+rm -f "/var/run/$script_name"
 
 exit 0
